@@ -1,6 +1,5 @@
 import tensorflow as tf
 
-
 def conv1d_transpose(
     inputs,
     filters,
@@ -9,13 +8,12 @@ def conv1d_transpose(
     padding='same',
     upsample='zeros'):
   if upsample == 'zeros':
-    return tf.layers.conv2d_transpose(
-        tf.expand_dims(inputs, axis=1),
+    return tf.keras.layers.Conv2DTranspose(
         filters,
         (1, kernel_width),
         strides=(1, stride),
         padding='same'
-        )[:, 0]
+        )(tf.expand_dims(inputs, axis=1))[:, 0]
   elif upsample == 'nn':
     batch_size = tf.shape(inputs)[0]
     _, w, nch = inputs.get_shape().as_list()
@@ -61,8 +59,8 @@ def WaveGANGenerator(
   # [100] -> [16, 1024]
   dim_mul = 16 if slice_len == 16384 else 32
   output = z
-  with tf.variable_scope('z_project'):
-    output = tf.layers.dense(output, 4 * 4 * dim * dim_mul)
+  with tf.compat.v1.variable_scope('z_project'):
+    output = tf.keras.layers.Dense(4 * 4 * dim * dim_mul)(z)
     output = tf.reshape(output, [batch_size, 16, dim * dim_mul])
     output = batchnorm(output)
   output = tf.nn.relu(output)
@@ -70,7 +68,7 @@ def WaveGANGenerator(
 
   # Layer 0
   # [16, 1024] -> [64, 512]
-  with tf.variable_scope('upconv_0'):
+  with tf.compat.v1.variable_scope('upconv_0'):
     output = conv1d_transpose(output, dim * dim_mul, kernel_len, 4, upsample=upsample)
     output = batchnorm(output)
   output = tf.nn.relu(output)
@@ -78,7 +76,7 @@ def WaveGANGenerator(
 
   # Layer 1
   # [64, 512] -> [256, 256]
-  with tf.variable_scope('upconv_1'):
+  with tf.compat.v1.variable_scope('upconv_1'):
     output = conv1d_transpose(output, dim * dim_mul, kernel_len, 4, upsample=upsample)
     output = batchnorm(output)
   output = tf.nn.relu(output)
@@ -86,7 +84,7 @@ def WaveGANGenerator(
 
   # Layer 2
   # [256, 256] -> [1024, 128]
-  with tf.variable_scope('upconv_2'):
+  with tf.compat.v1.variable_scope('upconv_2'):
     output = conv1d_transpose(output, dim * dim_mul, kernel_len, 4, upsample=upsample)
     output = batchnorm(output)
   output = tf.nn.relu(output)
@@ -94,7 +92,7 @@ def WaveGANGenerator(
 
   # Layer 3
   # [1024, 128] -> [4096, 64]
-  with tf.variable_scope('upconv_3'):
+  with tf.compat.v1.variable_scope('upconv_3'):
     output = conv1d_transpose(output, dim * dim_mul, kernel_len, 4, upsample=upsample)
     output = batchnorm(output)
   output = tf.nn.relu(output)
@@ -102,33 +100,33 @@ def WaveGANGenerator(
   if slice_len == 16384:
     # Layer 4
     # [4096, 64] -> [16384, nch]
-    with tf.variable_scope('upconv_4'):
+    with tf.compat.v1.variable_scope('upconv_4'):
       output = conv1d_transpose(output, nch, kernel_len, 4, upsample=upsample)
     output = tf.nn.tanh(output)
   elif slice_len == 32768:
     # Layer 4
     # [4096, 128] -> [16384, 64]
-    with tf.variable_scope('upconv_4'):
+    with tf.compat.v1.variable_scope('upconv_4'):
       output = conv1d_transpose(output, dim, kernel_len, 4, upsample=upsample)
       output = batchnorm(output)
     output = tf.nn.relu(output)
 
     # Layer 5
     # [16384, 64] -> [32768, nch]
-    with tf.variable_scope('upconv_5'):
+    with tf.compat.v1.variable_scope('upconv_5'):
       output = conv1d_transpose(output, nch, kernel_len, 2, upsample=upsample)
     output = tf.nn.tanh(output)
   elif slice_len == 65536:
     # Layer 4
     # [4096, 128] -> [16384, 64]
-    with tf.variable_scope('upconv_4'):
+    with tf.compat.v1.variable_scope('upconv_4'):
       output = conv1d_transpose(output, dim, kernel_len, 4, upsample=upsample)
       output = batchnorm(output)
     output = tf.nn.relu(output)
 
     # Layer 5
     # [16384, 64] -> [65536, nch]
-    with tf.variable_scope('upconv_5'):
+    with tf.compat.v1.variable_scope('upconv_5'):
       output = conv1d_transpose(output, nch, kernel_len, 4, upsample=upsample)
     output = tf.nn.tanh(output)
 
@@ -152,7 +150,7 @@ def lrelu(inputs, alpha=0.2):
 def apply_phaseshuffle(x, rad, pad_type='reflect'):
   b, x_len, nch = x.get_shape().as_list()
 
-  phase = tf.random_uniform([], minval=-rad, maxval=rad + 1, dtype=tf.int32)
+  phase = tf.random.uniform([], minval=-rad, maxval=rad + 1, dtype=tf.int32)
   pad_l = tf.maximum(phase, 0)
   pad_r = tf.maximum(-phase, 0)
   phase_start = pad_r
@@ -190,54 +188,54 @@ def WaveGANDiscriminator(
   # Layer 0
   # [16384, 1] -> [4096, 64]
   output = x
-  with tf.variable_scope('downconv_0'):
-    output = tf.layers.conv1d(output, dim, kernel_len, 4, padding='SAME')
+  with tf.compat.v1.variable_scope('downconv_0'):
+    output = tf.keras.layers.Conv1D(dim, kernel_len, 4, padding='SAME')(output)
   output = lrelu(output)
   output = phaseshuffle(output)
 
   # Layer 1
   # [4096, 64] -> [1024, 128]
-  with tf.variable_scope('downconv_1'):
-    output = tf.layers.conv1d(output, dim * 2, kernel_len, 4, padding='SAME')
+  with tf.compat.v1.variable_scope('downconv_1'):
+    output = tf.keras.layers.Conv1D(dim * 2, kernel_len, 4, padding='SAME')(output)
     output = batchnorm(output)
   output = lrelu(output)
   output = phaseshuffle(output)
 
   # Layer 2
   # [1024, 128] -> [256, 256]
-  with tf.variable_scope('downconv_2'):
-    output = tf.layers.conv1d(output, dim * 4, kernel_len, 4, padding='SAME')
+  with tf.compat.v1.variable_scope('downconv_2'):
+    output = tf.keras.layers.Conv1D(dim * 4, kernel_len, 4, padding='SAME')(output)
     output = batchnorm(output)
   output = lrelu(output)
   output = phaseshuffle(output)
 
   # Layer 3
   # [256, 256] -> [64, 512]
-  with tf.variable_scope('downconv_3'):
-    output = tf.layers.conv1d(output, dim * 8, kernel_len, 4, padding='SAME')
+  with tf.compat.v1.variable_scope('downconv_3'):
+    output = tf.keras.layers.Conv1D(dim * 8, kernel_len, 4, padding='SAME')(output)
     output = batchnorm(output)
   output = lrelu(output)
   output = phaseshuffle(output)
 
   # Layer 4
   # [64, 512] -> [16, 1024]
-  with tf.variable_scope('downconv_4'):
-    output = tf.layers.conv1d(output, dim * 16, kernel_len, 4, padding='SAME')
+  with tf.compat.v1.variable_scope('downconv_4'):
+    output = tf.keras.layers.Conv1D(dim * 16, kernel_len, 4, padding='SAME')(output)
     output = batchnorm(output)
   output = lrelu(output)
 
   if slice_len == 32768:
     # Layer 5
     # [32, 1024] -> [16, 2048]
-    with tf.variable_scope('downconv_5'):
-      output = tf.layers.conv1d(output, dim * 32, kernel_len, 2, padding='SAME')
+    with tf.compat.v1.variable_scope('downconv_5'):
+      output = tf.keras.layers.Conv1D(dim * 32, kernel_len, 2, padding='SAME')(output)
       output = batchnorm(output)
     output = lrelu(output)
   elif slice_len == 65536:
     # Layer 5
     # [64, 1024] -> [16, 2048]
-    with tf.variable_scope('downconv_5'):
-      output = tf.layers.conv1d(output, dim * 32, kernel_len, 4, padding='SAME')
+    with tf.compat.v1.variable_scope('downconv_5'):
+      output = tf.keras.layers.Conv1D(dim * 32, kernel_len, 4, padding='SAME')(output)
       output = batchnorm(output)
     output = lrelu(output)
 
@@ -245,8 +243,8 @@ def WaveGANDiscriminator(
   output = tf.reshape(output, [batch_size, -1])
 
   # Connect to single logit
-  with tf.variable_scope('output'):
-    output = tf.layers.dense(output, 1)[:, 0]
+  with tf.compat.v1.variable_scope('output'):
+    output = tf.keras.layers.Dense(1)(output)[:, 0]
 
   # Don't need to aggregate batchnorm update ops like we do for the generator because we only use the discriminator for training
 

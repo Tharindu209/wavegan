@@ -9,8 +9,10 @@ import os
 import time
 
 import numpy as np
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
+tf.disable_v2_behavior()
 from six.moves import xrange
+from tensorflow import keras
 
 import loader
 from wavegan import WaveGANGenerator, WaveGANDiscriminator
@@ -544,7 +546,6 @@ if __name__ == '__main__':
       help='If your data is comprised of standard WAV files (16-bit signed PCM or 32-bit float), use this flag to decode audio using scipy (faster) instead of librosa')
   data_args.add_argument('--data_prefetch_gpu_num', type=int,
       help='If nonnegative, prefetch examples to this GPU (Tensorflow device num)')
-
   wavegan_args = parser.add_argument_group('WaveGAN')
   wavegan_args.add_argument('--wavegan_latent_dim', type=int,
       help='Number of dimensions of the latent space')

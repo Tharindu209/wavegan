@@ -2,6 +2,7 @@ from scipy.io.wavfile import read as wavread
 import numpy as np
 
 import tensorflow as tf
+import tensorflow_addons as tfa
 
 import sys
 
@@ -31,7 +32,7 @@ def decode_audio(fp, fs=None, num_channels=1, normalize=False, fast_wav=False):
     else:
       raise NotImplementedError('Scipy cannot process atypical WAV files.')
   else:
-    # Decode with librosa load (slow but supports file formats like mp3).
+    # Decode with librosa load (slow but supports file formats like ear).
     import librosa
     _wav, _fs = librosa.core.load(fp, sr=fs, mono=False)
     if _wav.ndim == 2:
@@ -127,11 +128,10 @@ def decode_extract_and_batch(
       normalize=decode_normalize,
       fast_wav=decode_fast_wav)
 
-    audio = tf.py_func(
+    audio = tf.py_function(
         _decode_audio_closure,
         [fp],
-        tf.float32,
-        stateful=False)
+        tf.float32)
     audio.set_shape([None, 1, decode_num_channels])
 
     return audio
@@ -152,11 +152,11 @@ def decode_extract_and_batch(
 
     # Randomize starting phase:
     if slice_randomize_offset:
-      start = tf.random_uniform([], maxval=slice_len, dtype=tf.int32)
+      start = tf.random.uniform([], maxval=slice_len, dtype=tf.int32)
       audio = audio[start:]
 
     # Extract sliceuences
-    audio_slices = tf.contrib.signal.frame(
+    audio_slices = tf.signal.frame(
         audio,
         slice_len,
         slice_hop,
@@ -193,6 +193,6 @@ def decode_extract_and_batch(
             '/device:GPU:{}'.format(prefetch_gpu_num)))
 
   # Get tensors
-  iterator = dataset.make_one_shot_iterator()
+  iterator = tf.compat.v1.data.make_one_shot_iterator(dataset)
   
   return iterator.get_next()
